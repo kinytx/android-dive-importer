@@ -14,11 +14,14 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import android.widget.Toast
+import androidx.compose.ui.platform.LocalContext
+import cn.diveplan.importer.ble.VendorMatch
 import cn.diveplan.importer.data.ApiKeyStore
-import cn.diveplan.importer.ui.PlaceholderHomeScreen
 import cn.diveplan.importer.ui.bind.BindScreen
 import cn.diveplan.importer.ui.bind.BindViewModel
 import cn.diveplan.importer.ui.bind.extractBindCode
+import cn.diveplan.importer.ui.scan.ScanScreen
 import cn.diveplan.importer.ui.theme.DivePlanImporterTheme
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
@@ -83,8 +86,21 @@ class MainActivity : ComponentActivity() {
                 onBound = { /* RootScreen 会自动 recompose，因为 apiKey 变了 */ },
             )
         } else {
-            // 已绑定 → 暂时 PlaceholderHome；P2 替换成 ScanScreen
-            PlaceholderHomeScreen()
+            // 已绑定 → ScanScreen（P3 加点击设备进入抓 dump；现在仅弹 Toast 验证选中态）
+            val context = LocalContext.current
+            ScanScreen(onDeviceSelected = { device ->
+                val info = when (val m = device.vendorMatch) {
+                    is VendorMatch.Hit -> "${m.vendor} ${m.product}" +
+                        (if (m.weak) " · 走特殊通道" else "") +
+                        (if (m.ambiguous) " · 待确认" else "")
+                    VendorMatch.Unknown -> "未识别"
+                }
+                Toast.makeText(
+                    context,
+                    "已选 · $info · ${device.name ?: device.address}",
+                    Toast.LENGTH_SHORT,
+                ).show()
+            })
         }
 
         // 冷启动如果 intent 已经把 code 喂给 ViewModel 进 Submitting，
